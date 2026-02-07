@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"D:\\\\Projects\\\\kargo\"\" 2>nul || echo \"Directory may not exist or is empty \")",
+      "Bash(dir:*)",
+      "Bash(pip install:*)",
+      "Bash(pytest:*)",
+      "Bash(timeout 8 uvicorn:*)"
+    ]
+  }
+}
