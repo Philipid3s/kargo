@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { GitMerge, Trash2, Plus, RotateCcw } from 'lucide-react'
+import { GitMerge, Trash2, Plus, RotateCcw, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { DataTable, type Column } from '@/components/shared/data-table'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { PageHeader } from '@/components/layout/page-header'
@@ -22,6 +23,7 @@ export default function MatchingPage() {
   const unwindAll = useUnwindAll()
   const createManual = useCreateManualMatch()
 
+  const [helpOpen, setHelpOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const [unwindOpen, setUnwindOpen] = useState(false)
   const [manualForm, setManualForm] = useState<MatchCreate>({
@@ -70,6 +72,10 @@ export default function MatchingPage() {
   return (
     <div>
       <PageHeader title="Matching">
+        <Button variant="outline" onClick={() => setHelpOpen(true)}>
+          <HelpCircle className="mr-2 h-4 w-4" />
+          How Matching Works
+        </Button>
         <Button variant="outline" onClick={() => runFifo.mutate()} disabled={runFifo.isPending}>
           <GitMerge className="mr-2 h-4 w-4" />{runFifo.isPending ? 'Running...' : 'Run FIFO'}
         </Button>
@@ -135,6 +141,138 @@ export default function MatchingPage() {
         onConfirm={() => unwindAll.mutate(undefined, { onSuccess: () => setUnwindOpen(false) })}
         loading={unwindAll.isPending}
       />
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>How Matching Works</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 text-sm leading-relaxed">
+
+            <section>
+              <h3 className="font-semibold text-base">What is Matching?</h3>
+              <p className="mt-1 text-muted-foreground">
+                Matching pairs BUY contracts with SELL contracts to realize profit or loss.
+                When a buy and a sell are matched, the system computes the realized P&L based on
+                the difference between the weighted average prices of each side. Kargo supports
+                two matching modes: <strong>FIFO (automatic)</strong> and <strong>Manual</strong>.
+              </p>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">FIFO Matching (Automatic)</h3>
+              <p className="mt-1 text-muted-foreground">
+                FIFO (First In, First Out) matches contracts in chronological order of their
+                delivery start date. It is a full re-run: all existing matches are cleared and
+                rebuilt from scratch.
+              </p>
+              <ol className="mt-3 list-decimal pl-5 space-y-1 text-muted-foreground">
+                <li>Collect all BUY contracts with status OPEN or EXECUTED, sorted by <strong>delivery_start ASC</strong></li>
+                <li>Collect all SELL contracts with status OPEN or EXECUTED, sorted by <strong>delivery_start ASC</strong></li>
+                <li>Walk through BUYs in order; for each BUY, consume SELLs from earliest to latest</li>
+                <li>The matched quantity is the <strong>minimum</strong> of the remaining quantity on each side</li>
+                <li>Partial matches are allowed &mdash; a contract can be split across multiple matches</li>
+                <li>Continue until either all BUY or all SELL quantity is exhausted</li>
+              </ol>
+              <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
+                match_qty = min(buy_remaining, sell_remaining)
+              </div>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">Manual Matching</h3>
+              <p className="mt-1 text-muted-foreground">
+                Manual matching lets you explicitly pair a specific BUY contract with a specific
+                SELL contract for a given quantity and date. This is useful when:
+              </p>
+              <ul className="mt-3 list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>You need to override the FIFO order for a specific trade</li>
+                <li>A back-to-back deal should be matched to a particular counterparty</li>
+                <li>You want to partially match a contract while keeping the rest unmatched</li>
+              </ul>
+              <p className="mt-2 text-muted-foreground">
+                Manual matches are <strong>additive</strong> &mdash; they do not clear existing
+                matches. To start fresh, use <strong>Unwind All</strong> first.
+              </p>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">Pricing &amp; Realized P&L</h3>
+              <p className="mt-1 text-muted-foreground">
+                For each match, the system calculates a realized P&L using the weighted average
+                shipment prices on each contract:
+              </p>
+              <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
+                Realized P&L = (Sell Price - Buy Price) x Matched Quantity
+              </div>
+              <ul className="mt-3 list-disc pl-5 space-y-1 text-muted-foreground">
+                <li><strong>Buy Price</strong> &mdash; Weighted average of shipment prices on the buy contract (final price preferred over provisional)</li>
+                <li><strong>Sell Price</strong> &mdash; Weighted average of shipment prices on the sell contract</li>
+                <li>If either side has no priced shipments, Realized P&L shows as "-" (not yet calculable)</li>
+              </ul>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">Example</h3>
+              <div className="mt-2 rounded-md border p-3 text-muted-foreground space-y-1">
+                <p>BUY contract: <strong>50,000 DMT</strong>, weighted avg price <strong>$108.00/DMT</strong></p>
+                <p>SELL contract: <strong>30,000 DMT</strong>, weighted avg price <strong>$115.00/DMT</strong></p>
+                <p>FIFO matched quantity: <strong>30,000 DMT</strong> (limited by the smaller side)</p>
+                <div className="mt-2 rounded-md bg-muted p-2 font-mono text-xs">
+                  Realized P&L = ($115.00 - $108.00) x 30,000 = <strong>+$210,000</strong>
+                </div>
+                <p className="mt-1 text-xs">The BUY contract has 20,000 DMT remaining to match against future SELLs.</p>
+              </div>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">Unwind All</h3>
+              <p className="mt-1 text-muted-foreground">
+                Deletes every match in the system, resetting all matching data. Use this to start
+                fresh before re-running FIFO or building manual matches from scratch. This action
+                is irreversible.
+              </p>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">Results Table Columns</h3>
+              <ul className="mt-2 list-disc pl-5 space-y-1 text-muted-foreground">
+                <li><strong>Buy Contract</strong> &mdash; The BUY side contract reference</li>
+                <li><strong>Sell Contract</strong> &mdash; The SELL side contract reference</li>
+                <li><strong>Matched Qty</strong> &mdash; Quantity matched between the two contracts (DMT)</li>
+                <li><strong>Buy Price</strong> &mdash; Weighted avg price on the buy contract</li>
+                <li><strong>Sell Price</strong> &mdash; Weighted avg price on the sell contract</li>
+                <li><strong>Realized P&L</strong> &mdash; (Sell Price - Buy Price) x Matched Qty</li>
+                <li><strong>Match Date</strong> &mdash; Date the match was created</li>
+              </ul>
+            </section>
+
+            <Separator />
+
+            <section>
+              <h3 className="font-semibold text-base">Prerequisites</h3>
+              <ol className="mt-2 list-decimal pl-5 space-y-1 text-muted-foreground">
+                <li>At least one BUY and one SELL contract in OPEN or EXECUTED status</li>
+                <li>Run <strong>Value Positions</strong> (pricing) first so shipments have computed prices</li>
+                <li>Contracts need shipments with prices for Realized P&L to be calculated</li>
+              </ol>
+            </section>
+
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
