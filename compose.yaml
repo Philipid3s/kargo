@@ -1,29 +1,22 @@
+version: "3.9"
+
 services:
   backend:
-    image: ghcr.io/philipid3s/kargo-backend:latest
+    image: philipid3s/kargo-backend
     container_name: kargo-backend
+    ports:
+      - "8000:8000"
     environment:
-      - KARGO_DATABASE_URL=sqlite:////data/kargo.db
-      - KARGO_DEBUG=false
+      - KARGO_DATABASE_URL=sqlite:////app/data/kargo.db
     volumes:
-      - kargo-data:/data
-    expose:
-      - "8000"
+      - ./backend/data:/app/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   frontend:
-    image: ghcr.io/philipid3s/kargo-frontend:latest
+    image: philipid3s/kargo-frontend
     container_name: kargo-frontend
     ports:
       - "80:80"
     depends_on:
       - backend
     restart: unless-stopped
-
-volumes:
-  kargo-data:
