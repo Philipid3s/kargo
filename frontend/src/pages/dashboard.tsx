@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { FileText, Ship, TrendingUp, Database, BarChart3, GitMerge } from 'lucide-react'
+import { FileText, Ship, TrendingUp, Database, BarChart3, GitMerge, DollarSign, ChevronDown, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { KpiCard } from '@/components/shared/kpi-card'
+import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { DataTable, type Column } from '@/components/shared/data-table'
 import { PageHeader } from '@/components/layout/page-header'
-import { useDashboard, useSeedDatabase } from '@/hooks/use-dashboard'
+import { useDashboard, useSeedDatabase, useClearDatabase, useValueAllPositions } from '@/hooks/use-dashboard'
 import { useRunMtm } from '@/hooks/use-mtm'
 import { useRunFifo } from '@/hooks/use-matching'
 import { formatUSD, formatQuantity } from '@/lib/formatters'
@@ -33,9 +35,12 @@ const pnlCols: Column<PnlByContract>[] = [
 export default function DashboardPage() {
   const { data, isLoading } = useDashboard()
   const seedMutation = useSeedDatabase()
+  const clearMutation = useClearDatabase()
+  const valueMutation = useValueAllPositions()
   const mtmMutation = useRunMtm()
   const fifoMutation = useRunFifo()
   const [mtmDialogOpen, setMtmDialogOpen] = useState(false)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [mtmDate, setMtmDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   function handleRunMtm() {
@@ -44,14 +49,39 @@ export default function DashboardPage() {
   }
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading dashboard...</div>
-  if (!data) return <div className="p-8 text-muted-foreground">No data. Seed the database to get started.</div>
 
   return (
     <div>
       <PageHeader title="Dashboard">
-        <Button variant="outline" onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending}>
-          <Database className="mr-2 h-4 w-4" />
-          {seedMutation.isPending ? 'Seeding...' : 'Seed Database'}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              <Database className="mr-2 h-4 w-4" />
+              Database
+              <ChevronDown className="ml-2 h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => seedMutation.mutate()}
+              disabled={seedMutation.isPending}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {seedMutation.isPending ? 'Seeding...' : 'Seed Sample Data'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => setClearDialogOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear Database
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="outline" onClick={() => valueMutation.mutate()} disabled={valueMutation.isPending}>
+          <DollarSign className="mr-2 h-4 w-4" />
+          {valueMutation.isPending ? 'Valuing...' : 'Value Positions'}
         </Button>
         <Button variant="outline" onClick={() => setMtmDialogOpen(true)}>
           <BarChart3 className="mr-2 h-4 w-4" />
@@ -63,51 +93,61 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard title="Total Contracts" value={data.total_contracts} icon={FileText} />
-        <KpiCard title="Open Contracts" value={data.open_contracts} icon={FileText} description="Currently active" />
-        <KpiCard title="Total Shipments" value={data.total_shipments} icon={Ship} />
-        <KpiCard title="Active Shipments" value={data.active_shipments} icon={Ship} description="In transit / planned" />
-      </div>
+      {!data ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Database className="mb-4 h-12 w-12 text-muted-foreground" />
+          <h3 className="text-lg font-medium">No data yet</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Use the Database menu above to seed sample data.</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <KpiCard title="Total Contracts" value={data.total_contracts} icon={FileText} />
+            <KpiCard title="Open Contracts" value={data.open_contracts} icon={FileText} description="Currently active" />
+            <KpiCard title="Total Shipments" value={data.total_shipments} icon={Ship} />
+            <KpiCard title="Active Shipments" value={data.active_shipments} icon={Ship} description="In transit / planned" />
+          </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total P&L</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatUSD(data.pnl.total_pnl)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Realized P&L</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatUSD(data.pnl.total_realized)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Net Exposure</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <span className="text-2xl font-bold">{formatUSD(data.exposure.total_net_exposure_usd)}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total P&L</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatUSD(data.pnl.total_pnl)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Realized P&L</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatUSD(data.pnl.total_realized)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Net Exposure</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-2xl font-bold">{formatUSD(data.exposure.total_net_exposure_usd)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Exposure by Month</CardTitle></CardHeader>
-          <CardContent>
-            <DataTable columns={exposureCols} data={data.exposure.by_month} emptyMessage="No exposure data." />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>P&L by Contract</CardTitle></CardHeader>
-          <CardContent>
-            <DataTable columns={pnlCols} data={data.pnl.by_contract} emptyMessage="No P&L data." />
-          </CardContent>
-        </Card>
-      </div>
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Exposure by Month</CardTitle></CardHeader>
+              <CardContent>
+                <DataTable columns={exposureCols} data={data.exposure.by_month} emptyMessage="No exposure data." />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>P&L by Contract</CardTitle></CardHeader>
+              <CardContent>
+                <DataTable columns={pnlCols} data={data.pnl.by_contract} emptyMessage="No P&L data." />
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       <Dialog open={mtmDialogOpen} onOpenChange={setMtmDialogOpen}>
         <DialogContent>
@@ -126,6 +166,15 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={clearDialogOpen}
+        onOpenChange={setClearDialogOpen}
+        title="Clear Database"
+        description="This will delete ALL data (contracts, shipments, curves, matches, etc.). Are you sure?"
+        onConfirm={() => clearMutation.mutate(undefined, { onSuccess: () => setClearDialogOpen(false) })}
+        loading={clearMutation.isPending}
+      />
     </div>
   )
 }

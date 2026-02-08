@@ -44,14 +44,48 @@ def _get_current_curve_price(
     valuation_date: str,
     snapshot_date: str,
 ) -> float:
-    """Get curve price for valuation date. Uses single-day average as proxy."""
+    """Get curve price for valuation date.
+
+    Falls back to the latest available price at or before the valuation date.
+    """
+    from app.models.price_curve import CurveData
+    from sqlalchemy import func
+
+    # 1) Try exact date with snapshot
     try:
         avg, _ = get_curve_average(db, curve_id, valuation_date, valuation_date, snapshot_date)
         return avg
     except HTTPException:
-        # Try getting the latest available price up to valuation_date
+        pass
+
+    # 2) Try exact date without snapshot filter
+    try:
         avg, _ = get_curve_average(db, curve_id, valuation_date, valuation_date)
         return avg
+    except HTTPException:
+        pass
+
+    # 3) Fall back to the latest available price_date <= valuation_date
+    latest = (
+        db.query(CurveData)
+        .filter(CurveData.curve_id == curve_id, CurveData.price_date <= valuation_date)
+        .order_by(CurveData.price_date.desc())
+        .first()
+    )
+    if latest:
+        return latest.price
+
+    # 4) Last resort: the most recent price in the entire curve
+    most_recent = (
+        db.query(CurveData)
+        .filter(CurveData.curve_id == curve_id)
+        .order_by(CurveData.price_date.desc())
+        .first()
+    )
+    if most_recent:
+        return most_recent.price
+
+    raise HTTPException(status_code=404, detail="No curve data available for MTM valuation")
 
 
 def run_mtm_for_contract(
@@ -67,12 +101,14 @@ def run_mtm_for_contract(
     open_qty_info = get_open_quantity(db, contract_id)
     open_qty = open_qty_info.open_quantity
 
+    curve_price = _get_current_curve_price(db, formula.curve_id, valuation_date, snap)
+
     if open_qty <= 0:
-        # No open position — MTM is 0
+        # No open position — MTM is 0 but still report actual curve price
         record = MtmRecord(
             contract_id=contract_id,
             valuation_date=valuation_date,
-            curve_price=0,
+            curve_price=round(curve_price, 4),
             contract_price=None,
             open_quantity=0,
             direction=contract.direction,
@@ -82,8 +118,6 @@ def run_mtm_for_contract(
         db.commit()
         db.refresh(record)
         return record
-
-    curve_price = _get_current_curve_price(db, formula.curve_id, valuation_date, snap)
     contract_price = _get_contract_price(db, contract)
 
     direction_factor = 1.0 if contract.direction == "BUY" else -1.0

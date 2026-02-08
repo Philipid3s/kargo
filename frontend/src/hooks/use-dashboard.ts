@@ -17,3 +17,32 @@ export function useSeedDatabase() {
     onError: (e: Error) => toast.error(e.message),
   })
 }
+
+export function useClearDatabase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => dashboardApi.clear(),
+    onSuccess: () => {
+      qc.invalidateQueries()
+      toast.success('Database cleared')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useValueAllPositions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => dashboardApi.valueAllPositions(),
+    onSuccess: (data) => {
+      qc.invalidateQueries()
+      const msg = `Valued ${data.provisional_computed} provisional, ${data.final_computed} final`
+      if (data.errors.length > 0) {
+        toast.warning(`${msg} (${data.errors.length} errors)`)
+      } else {
+        toast.success(msg)
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}

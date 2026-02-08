@@ -35,18 +35,21 @@ def _get_weighted_avg_price(db: Session, contract_id: int) -> float | None:
 
 def get_realized_pnl(db: Session) -> list[RealizedPnlItem]:
     matches = db.query(Match).all()
-    return [
-        RealizedPnlItem(
+    items = []
+    for m in matches:
+        bp = m.buy_price or _get_weighted_avg_price(db, m.buy_contract_id)
+        sp = m.sell_price or _get_weighted_avg_price(db, m.sell_contract_id)
+        realized = round((sp - bp) * m.matched_quantity, 2) if bp and sp else m.realized_pnl
+        items.append(RealizedPnlItem(
             match_id=m.id,
             buy_contract_id=m.buy_contract_id,
             sell_contract_id=m.sell_contract_id,
             matched_quantity=m.matched_quantity,
-            buy_price=m.buy_price,
-            sell_price=m.sell_price,
-            realized_pnl=m.realized_pnl,
-        )
-        for m in matches
-    ]
+            buy_price=bp,
+            sell_price=sp,
+            realized_pnl=realized,
+        ))
+    return items
 
 
 def get_unrealized_pnl(db: Session) -> list[UnrealizedPnlItem]:
@@ -83,14 +86,15 @@ def get_pnl_summary(db: Session) -> PnlSummary:
     total_unrealized = 0.0
 
     for c in contracts:
-        # Realized from matches
+        # Realized from matches — compute dynamically from current shipment prices
         buy_matches = db.query(Match).filter(Match.buy_contract_id == c.id).all()
-        sell_matches = db.query(Match).filter(Match.sell_contract_id == c.id).all()
-        realized = sum(
-            m.realized_pnl for m in (buy_matches + sell_matches) if m.realized_pnl is not None
-        )
-        # Avoid double counting: only count from buy side
-        realized_buy = sum(m.realized_pnl for m in buy_matches if m.realized_pnl is not None)
+
+        realized_buy = 0.0
+        for m in buy_matches:
+            bp = m.buy_price or _get_weighted_avg_price(db, m.buy_contract_id)
+            sp = m.sell_price or _get_weighted_avg_price(db, m.sell_contract_id)
+            if bp is not None and sp is not None:
+                realized_buy += round((sp - bp) * m.matched_quantity, 2)
 
         # Unrealized from latest MTM
         latest_mtm = (

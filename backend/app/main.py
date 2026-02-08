@@ -56,3 +56,11 @@ def seed_database():
     from app.seed.seed_data import seed
     seed()
     return {"status": "seeded"}
+
+
+@app.post("/clear", tags=["Admin"])
+def clear_database():
+    """Drop all tables and recreate them (full reset)."""
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    return {"status": "cleared"}

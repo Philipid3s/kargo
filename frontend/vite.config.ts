@@ -14,6 +14,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8000',
       '/seed': 'http://localhost:8000',
+      '/clear': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
   },

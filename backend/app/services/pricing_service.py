@@ -56,6 +56,62 @@ def resolve_qp_dates(
     return start.isoformat(), end.isoformat()
 
 
+def value_all_positions(db: Session) -> dict:
+    """Compute provisional/final prices for all eligible shipments.
+
+    For each non-CANCELLED shipment:
+      - Compute provisional if provisional assay exists
+      - Compute final (+ P&F) if final assay exists
+    Skips shipments that lack required assays. Returns a summary.
+    """
+    shipments = (
+        db.query(Shipment)
+        .filter(Shipment.status != "CANCELLED")
+        .all()
+    )
+
+    provisional_count = 0
+    final_count = 0
+    errors: list[str] = []
+
+    for shipment in shipments:
+        contract = db.query(Contract).filter(Contract.id == shipment.contract_id).first()
+        if not contract or not shipment.bl_date:
+            continue
+
+        # Try provisional
+        prov_assay = (
+            db.query(Assay)
+            .filter(Assay.shipment_id == shipment.id, Assay.assay_type == "PROVISIONAL")
+            .first()
+        )
+        if prov_assay:
+            try:
+                compute_provisional_price(db, shipment, contract)
+                provisional_count += 1
+            except HTTPException as e:
+                errors.append(f"{shipment.reference} provisional: {e.detail}")
+
+        # Try final
+        final_assay = (
+            db.query(Assay)
+            .filter(Assay.shipment_id == shipment.id, Assay.assay_type == "FINAL")
+            .first()
+        )
+        if final_assay:
+            try:
+                compute_final_price(db, shipment, contract)
+                final_count += 1
+            except HTTPException as e:
+                errors.append(f"{shipment.reference} final: {e.detail}")
+
+    return {
+        "provisional_computed": provisional_count,
+        "final_computed": final_count,
+        "errors": errors,
+    }
+
+
 def _assay_to_dict(assay: Assay) -> dict[str, float | None]:
     return {
         "sio2": assay.sio2,

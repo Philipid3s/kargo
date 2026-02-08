@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.contract import Contract
 from app.models.shipment import Shipment
 from app.schemas.dashboard import DashboardSummary
-from app.services import exposure_service, pnl_service
+from app.services import exposure_service, pnl_service, pricing_service
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard"])
 
@@ -30,3 +30,9 @@ def get_dashboard(db: Session = Depends(get_db)):
         exposure=exposure,
         pnl=pnl,
     )
+
+
+@router.post("/value-all-positions")
+def value_all_positions(db: Session = Depends(get_db)):
+    """Compute provisional/final prices for all eligible shipments."""
+    return pricing_service.value_all_positions(db)

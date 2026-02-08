@@ -83,7 +83,7 @@ def seed():
             direction="BUY",
             counterparty="Vale International",
             commodity="Iron Ore Fines",
-            quantity=75000,
+            quantity=120000,
             uom="DMT",
             incoterm="CFR",
             delivery_start="2025-01-15",
@@ -97,7 +97,7 @@ def seed():
             direction="BUY",
             counterparty="BHP Trading",
             commodity="Iron Ore Fines",
-            quantity=50000,
+            quantity=80000,
             uom="DMT",
             incoterm="CFR",
             delivery_start="2025-01-20",
@@ -111,7 +111,7 @@ def seed():
             direction="SELL",
             counterparty="Baosteel Resources",
             commodity="Iron Ore Fines",
-            quantity=60000,
+            quantity=100000,
             uom="DMT",
             incoterm="CFR",
             delivery_start="2025-01-18",
@@ -179,6 +179,21 @@ def seed():
         ))
 
         db.commit()
+
+        # --- 6. Compute prices on shipments ---
+        from app.services.pricing_service import compute_provisional_price, compute_final_price
+
+        # ship1 (BUY-001): has provisional + final assay
+        compute_provisional_price(db, ship1, buy1)
+        compute_final_price(db, ship1, buy1)
+
+        # ship2 (BUY-002): has provisional assay only
+        compute_provisional_price(db, ship2, buy2)
+
+        # ship3 (SELL-001): has provisional + final assay
+        compute_provisional_price(db, ship3, sell1)
+        compute_final_price(db, ship3, sell1)
+
         print("Seed data created successfully!")
         print(f"  - Price curve: {tsi.code} ({len(base_prices)} data points)")
         print(f"  - Formula: {formula.name}")
