@@ -5,7 +5,13 @@
       "Bash(dir:*)",
       "Bash(pip install:*)",
       "Bash(pytest:*)",
-      "Bash(timeout 8 uvicorn:*)"
+      "Bash(timeout 8 uvicorn:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }
