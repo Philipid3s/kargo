@@ -1,6 +1,6 @@
 services:
   backend:
-    build: https://github.com/Philipid3s/kargo.git#main:backend
+    image: ghcr.io/philipid3s/kargo-backend:latest
     container_name: kargo-backend
     environment:
       - KARGO_DATABASE_URL=sqlite:////data/kargo.db
@@ -17,7 +17,7 @@ services:
       retries: 3
 
   frontend:
-    build: https://github.com/Philipid3s/kargo.git#main:frontend
+    image: ghcr.io/philipid3s/kargo-frontend:latest
     container_name: kargo-frontend
     ports:
       - "80:80"
