@@ -21,6 +21,8 @@ class ContractCreate(BaseModel):
 
 
 class ContractUpdate(BaseModel):
+    reference: str | None = None
+    direction: Direction | None = None
     counterparty: str | None = None
     commodity: str | None = None
     quantity: float | None = None
