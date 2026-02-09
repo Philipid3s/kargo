@@ -10,7 +10,25 @@ Physical Iron Ore Commodity Trading Risk Management POC.
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, TanStack Query, React Router |
 | **Tests** | pytest + in-memory SQLite |
 
-## Quick Start
+## Run with Docker
+
+```bash
+docker compose up -d
+```
+
+This pulls and starts both containers:
+- **Frontend** — http://localhost
+- **Backend API** — http://localhost:8000 (Swagger UI at `/docs`)
+
+The `compose.yaml` expects images from Docker Hub (`philipid3s/kargo-backend`, `philipid3s/kargo-frontend`). A `backend/data/` directory is created locally to persist the SQLite database.
+
+```bash
+docker compose ps       # Check status
+docker compose logs -f  # Follow logs
+docker compose down     # Stop and remove containers
+```
+
+## Local Development
 
 ### Backend
 
