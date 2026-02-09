@@ -76,7 +76,7 @@ export function Sidebar() {
                   to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      'inline-flex size-9 items-center justify-center rounded-md transition-colors',
+                      'grid h-9 w-full place-items-center rounded-md transition-colors',
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
-type Theme = 'light' | 'dark' | 'system'
+type Theme = 'light' | 'dark' | 'cobalt'
 
 interface ThemeContextValue {
   theme: Theme
@@ -13,18 +13,18 @@ const STORAGE_KEY = 'kargo-theme'
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement
-  if (theme === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    root.classList.toggle('dark', prefersDark)
-  } else {
-    root.classList.toggle('dark', theme === 'dark')
+  root.classList.remove('dark', 'cobalt')
+  if (theme === 'dark') {
+    root.classList.add('dark')
+  } else if (theme === 'cobalt') {
+    root.classList.add('dark', 'cobalt')
   }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return (stored as Theme) || 'system'
+    return (stored as Theme) || 'light'
   })
 
   const setTheme = (t: Theme) => {
@@ -34,14 +34,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     applyTheme(theme)
-  }, [theme])
-
-  useEffect(() => {
-    if (theme !== 'system') return
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = () => applyTheme('system')
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
   }, [theme])
 
   return (
