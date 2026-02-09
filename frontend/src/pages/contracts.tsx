@@ -118,7 +118,7 @@ export default function ContractsPage() {
           <DialogHeader><DialogTitle>{editingId ? 'Edit Contract' : 'New Contract'}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Reference</Label><Input value={form.reference} onChange={(e) => set('reference', e.target.value)} /></div>
+              <div><Label>Reference <span className="text-destructive">*</span></Label><Input value={form.reference} onChange={(e) => set('reference', e.target.value)} required /></div>
               <div>
                 <Label>Direction</Label>
                 <Select value={form.direction} onValueChange={(v) => set('direction', v as Direction)}>
@@ -178,7 +178,7 @@ export default function ContractsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+            <Button onClick={handleSubmit} disabled={!form.reference.trim() || createMutation.isPending || updateMutation.isPending}>
               {editingId ? 'Save' : 'Create'}
             </Button>
           </DialogFooter>

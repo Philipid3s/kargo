@@ -32,7 +32,12 @@ def create_shipment(db: Session, data: ShipmentCreate) -> Shipment:
 
 def update_shipment(db: Session, shipment_id: int, data: ShipmentUpdate) -> Shipment:
     shipment = get_shipment(db, shipment_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if "reference" in updates and updates["reference"] != shipment.reference:
+        existing = db.query(Shipment).filter(Shipment.reference == updates["reference"]).first()
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Shipment reference '{updates['reference']}' already exists")
+    for field, value in updates.items():
         setattr(shipment, field, value)
     db.commit()
     db.refresh(shipment)

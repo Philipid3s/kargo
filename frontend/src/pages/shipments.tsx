@@ -109,7 +109,7 @@ export default function ShipmentsPage() {
           <DialogHeader><DialogTitle>{editingId ? 'Edit Shipment' : 'New Shipment'}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             {!editingId && (
-              <div><Label>Reference</Label><Input value={form.reference} onChange={(e) => set('reference', e.target.value)} /></div>
+              <div><Label>Reference <span className="text-destructive">*</span></Label><Input value={form.reference} onChange={(e) => set('reference', e.target.value)} required /></div>
             )}
             {!editingId && (
               <div>
@@ -144,7 +144,7 @@ export default function ShipmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+            <Button onClick={handleSubmit} disabled={!form.reference.trim() || createMutation.isPending || updateMutation.isPending}>
               {editingId ? 'Save' : 'Create'}
             </Button>
           </DialogFooter>

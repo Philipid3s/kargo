@@ -13,6 +13,7 @@ class ShipmentCreate(BaseModel):
 
 
 class ShipmentUpdate(BaseModel):
+    reference: str | None = None
     vessel_name: str | None = None
     bl_date: str | None = None
     bl_quantity: float | None = None

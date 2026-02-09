@@ -39,7 +39,12 @@ def create_contract(db: Session, data: ContractCreate) -> Contract:
 
 def update_contract(db: Session, contract_id: int, data: ContractUpdate) -> Contract:
     contract = get_contract(db, contract_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if "reference" in updates and updates["reference"] != contract.reference:
+        existing = db.query(Contract).filter(Contract.reference == updates["reference"]).first()
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Contract reference '{updates['reference']}' already exists")
+    for field, value in updates.items():
         setattr(contract, field, value)
     db.commit()
     db.refresh(contract)
